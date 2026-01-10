@@ -11,12 +11,10 @@ files = sorted(data_dir.glob("part-*.parquet"))
 st.write(f"Parquet parts found: {len(files)}")
 
 if len(files) == 0:
-    st.error("No parquet parts found. Run the export script first.")
+    st.warning("Aucun fichier parquet local trouvé (normal sur Streamlit Cloud).")
+    st.info("Pour voir les données : exécute l’ingestion en local puis relance l’app.")
     st.stop()
 
-# Lecture d'un seul fichier pour rester léger (on étendra après)
 df = pd.read_parquet(files[0])
 st.write("Preview (first parquet part):")
 st.dataframe(df.head(50))
-
-st.write("Columns:", list(df.columns))
