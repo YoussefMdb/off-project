@@ -21,6 +21,12 @@ st.subheader("Aperçu")
 st.dataframe(df.head(50))
 
 st.subheader("Qualité rapide")
+missing_pct = (df.isna().mean() * 100).round(2).sort_values(ascending=False)
+
 st.write("Rows (this part):", len(df))
-st.write("Missing % (this part):")
-st.write((df.isna().mean() * 100).round(2))
+
+st.markdown("**Top 10 colonnes les plus manquantes (%)**")
+st.dataframe(missing_pct.head(10).reset_index().rename(columns={"index":"column", 0:"missing_%"}))
+
+st.markdown("**Top 10 colonnes les plus complètes (%)**")
+st.dataframe(missing_pct.tail(10).sort_values().reset_index().rename(columns={"index":"column", 0:"missing_%"}))
