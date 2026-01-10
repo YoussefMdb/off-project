@@ -1,4 +1,4 @@
-﻿code
+code
 product_name
 brands
 categories
