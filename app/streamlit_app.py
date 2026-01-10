@@ -1,77 +1,97 @@
 ﻿import streamlit as st
 import pandas as pd
 from pathlib import Path
+import re
 
 st.set_page_config(page_title="OFF Project", layout="wide")
 st.title("OFF Project — Clean MVP Explorer")
 
 data_dir = Path("data/curated/off_mvp_clean_parquet")
 files = sorted(data_dir.glob("clean-part-*.parquet"))
+
 st.write(f"Clean parquet parts found: {len(files)}")
 
-if len(files) == 0:
+if not files:
     st.warning("Aucun parquet clean trouvé (normal sur Streamlit Cloud).")
     st.info("Exécute le script de cleaning en local puis relance l’app.")
     st.stop()
 
-df = pd.read_parquet(files[0])
+# ---------- Choix de la part ----------
+part_idx = st.selectbox(
+    "Choisir une part (200k lignes chacune environ)",
+    list(range(len(files))),
+    format_func=lambda i: files[i].name,
+)
 
-# --------- Filtre pays (tags OFF) ----------
-st.subheader("Filtre (countries tags)")
+@st.cache_data(show_spinner=False)
+def load_part(path: Path) -> pd.DataFrame:
+    return pd.read_parquet(path)
 
-countries_series = df["countries"].dropna().astype(str)
-tokens = []
-for s in countries_series:
-    for tok in s.split("|"):
-        tok = tok.strip().lower()
-        if tok.startswith("en:"):
-            tokens.append(tok)
-all_countries = sorted(set(tokens))
+df = load_part(files[part_idx])
 
-selected = st.multiselect("Pays (tags OFF)", all_countries)
+# ---------- Filtre countries tags ----------
+st.subheader("Filtre (countries tags OFF)")
 
-if selected:
-    pattern = "|".join([rf"(^|\|){c}(\||$)" for c in selected])
-    mask = df["countries"].fillna("").str.contains(pattern, regex=True)
-    dff = df[mask].copy()
-else:
-    dff = df
+countries_series = df.get("countries")
+if countries_series is None:
+    st.error("Colonne 'countries' introuvable dans ce parquet.")
+    st.stop()
 
-if st.button("Reset filtre"):
-    st.experimental_rerun()
+countries_series = countries_series.dropna().astype(str)
 
-# --------- KPIs ----------
+all_country_tags = sorted(
+    set(tag for s in countries_series for tag in s.split("|") if tag)
+)
+
+selected_tags = st.multiselect(
+    "Pays (tags OFF) — ex: en:france, en:canada, en:brazil",
+    options=all_country_tags,
+)
+
+reset = st.button("Reset filtre")
+if reset:
+    selected_tags = []
+
+def filter_by_countries_tags(df_: pd.DataFrame, tags: list[str]) -> pd.DataFrame:
+    if not tags:
+        return df_
+    pattern = r"(^|\|)(" + "|".join(re.escape(t) for t in tags) + r")(\||$)"
+    mask = df_["countries"].fillna("").astype(str).str.contains(pattern, regex=True)
+    return df_[mask].copy()
+
+dff = filter_by_countries_tags(df, selected_tags)
+
+# ---------- KPIs ----------
 st.subheader("KPIs (sur cette part)")
-col1, col2, col3 = st.columns(3)
-col1.metric("Rows", f"{len(dff):,}".replace(",", " "))
-col2.metric("Produits avec Nutri-Score", f"{dff['nutriscore_grade'].notna().mean()*100:.1f}%")
-col3.metric("Produits avec NOVA", f"{dff['nova_group'].notna().mean()*100:.1f}%")
+c1, c2, c3 = st.columns(3)
+c1.metric("Rows", f"{len(dff):,}".replace(",", " "))
 
-# --------- Distributions ----------
-st.subheader("Distributions (sur cette part filtrée)")
+nutri_rate = (dff["nutriscore_grade"].notna().mean() * 100) if "nutriscore_grade" in dff.columns else 0.0
+nova_rate = (dff["nova_group"].notna().mean() * 100) if "nova_group" in dff.columns else 0.0
 
-left, right = st.columns(2)
+c2.metric("Produits avec Nutri-Score", f"{nutri_rate:.1f}%")
+c3.metric("Produits avec NOVA", f"{nova_rate:.1f}%")
 
-with left:
-    st.markdown("**Nutri-Score (grade)**")
-    ns = dff["nutriscore_grade"].fillna("missing").astype(str).str.lower()
-    ns = ns.replace({"nan": "missing", "": "missing"})
-    order = ["a", "b", "c", "d", "e", "unknown", "missing"]
-    ns_counts = ns.value_counts().reindex(order).dropna().astype(int)
-    st.bar_chart(ns_counts)
-
-with right:
-    st.markdown("**NOVA group**")
-    nova = dff["nova_group"].fillna("missing")
-    nova = nova.apply(lambda x: int(x) if pd.notna(x) and str(x).replace(".0","").isdigit() else "missing")
-    order = [1, 2, 3, 4, "missing"]
-    nova_counts = nova.value_counts().reindex(order).dropna().astype(int)
-    st.bar_chart(nova_counts)
-
-# --------- Qualité + aperçu ----------
-st.subheader("Qualité rapide")
+# ---------- Qualité ----------
+st.subheader("Qualité rapide (sur cette part filtrée)")
 missing_pct = (dff.isna().mean() * 100).round(2).sort_values(ascending=False)
-st.dataframe(missing_pct.head(10).reset_index().rename(columns={"index":"column", 0:"missing_%"}))
 
-st.subheader("Aperçu")
-st.dataframe(dff.head(50))
+st.markdown("**Top 10 colonnes les plus manquantes (%)**")
+st.dataframe(
+    missing_pct.head(10)
+    .reset_index()
+    .rename(columns={"index": "column", 0: "missing_%"}),
+    use_container_width=True
+)
+
+st.markdown("**Top 10 colonnes les plus complètes (%)**")
+st.dataframe(
+    missing_pct.tail(10).sort_values()
+    .reset_index()
+    .rename(columns={"index": "column", 0: "missing_%"}),
+    use_container_width=True
+)
+
+# ---------- Aperçu ----------
+st.subheader("Aperçu (50 lignes)")
+st.dataframe(dff.head(50), use_container_width=True)
