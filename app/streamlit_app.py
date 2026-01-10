@@ -78,20 +78,16 @@ missing_pct = (dff.isna().mean() * 100).round(2).sort_values(ascending=False)
 
 st.markdown("**Top 10 colonnes les plus manquantes (%)**")
 st.dataframe(
-    missing_pct.head(10)
-    .reset_index()
-    .rename(columns={"index": "column", 0: "missing_%"}),
-    use_container_width=True
+    missing_pct.head(10).reset_index().rename(columns={"index": "column", 0: "missing_%"}),
+    width="stretch",
 )
 
 st.markdown("**Top 10 colonnes les plus complètes (%)**")
 st.dataframe(
-    missing_pct.tail(10).sort_values()
-    .reset_index()
-    .rename(columns={"index": "column", 0: "missing_%"}),
-    use_container_width=True
+    missing_pct.tail(10).sort_values().reset_index().rename(columns={"index": "column", 0: "missing_%"}),
+    width="stretch",
 )
 
 # ---------- Aperçu ----------
 st.subheader("Aperçu (50 lignes)")
-st.dataframe(dff.head(50), use_container_width=True)
+st.dataframe(dff.head(50), width="stretch")
