@@ -2,4 +2,6 @@
 
 App en ligne : https://off-project-xtrxrtwnv85tsagdskwbhtn.streamlit.app
 
-Starter repo pour construire un pipeline data (ingestion → traitement → analytics) + Streamlit.
+Lancer en local :
+pip install -r requirements.txt
+streamlit run app\streamlit_app.py
