@@ -20,14 +20,12 @@ df = pd.read_parquet(files[0])
 st.subheader("Filtre (countries tags)")
 
 countries_series = df["countries"].dropna().astype(str)
-
 tokens = []
 for s in countries_series:
     for tok in s.split("|"):
         tok = tok.strip().lower()
         if tok.startswith("en:"):
             tokens.append(tok)
-
 all_countries = sorted(set(tokens))
 
 selected = st.multiselect("Pays (tags OFF)", all_countries)
@@ -48,6 +46,27 @@ col1, col2, col3 = st.columns(3)
 col1.metric("Rows", f"{len(dff):,}".replace(",", " "))
 col2.metric("Produits avec Nutri-Score", f"{dff['nutriscore_grade'].notna().mean()*100:.1f}%")
 col3.metric("Produits avec NOVA", f"{dff['nova_group'].notna().mean()*100:.1f}%")
+
+# --------- Distributions ----------
+st.subheader("Distributions (sur cette part filtrée)")
+
+left, right = st.columns(2)
+
+with left:
+    st.markdown("**Nutri-Score (grade)**")
+    ns = dff["nutriscore_grade"].fillna("missing").astype(str).str.lower()
+    ns = ns.replace({"nan": "missing", "": "missing"})
+    order = ["a", "b", "c", "d", "e", "unknown", "missing"]
+    ns_counts = ns.value_counts().reindex(order).dropna().astype(int)
+    st.bar_chart(ns_counts)
+
+with right:
+    st.markdown("**NOVA group**")
+    nova = dff["nova_group"].fillna("missing")
+    nova = nova.apply(lambda x: int(x) if pd.notna(x) and str(x).replace(".0","").isdigit() else "missing")
+    order = [1, 2, 3, 4, "missing"]
+    nova_counts = nova.value_counts().reindex(order).dropna().astype(int)
+    st.bar_chart(nova_counts)
 
 # --------- Qualité + aperçu ----------
 st.subheader("Qualité rapide")
