@@ -1,0 +1,17 @@
+﻿__pycache__/
+*.py[cod]
+.venv/
+.env
+
+data/
+*.parquet
+*.csv
+*.jsonl
+*.sqlite
+*.db
+
+.streamlit/secrets.toml
+
+.vscode/
+.idea/
+.DS_Store
