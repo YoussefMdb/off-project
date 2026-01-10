@@ -7,7 +7,6 @@ st.title("OFF Project — Clean MVP Explorer")
 
 data_dir = Path("data/curated/off_mvp_clean_parquet")
 files = sorted(data_dir.glob("clean-part-*.parquet"))
-
 st.write(f"Clean parquet parts found: {len(files)}")
 
 if len(files) == 0:
@@ -15,15 +14,21 @@ if len(files) == 0:
     st.info("Exécute le script de cleaning en local puis relance l’app.")
     st.stop()
 
-# Lecture d'une seule part (léger)
 df = pd.read_parquet(files[0])
 
-# ---- Filtre pays (sur la colonne 'countries' formatée en 'a|b|c') ----
-st.subheader("Filtre")
+st.subheader("Filtre (countries tags)")
 countries_series = df["countries"].dropna().astype(str)
-all_countries = sorted(set(x for s in countries_series for x in s.split("|") if x))
 
-selected = st.selectbox("Pays (optionnel)", ["(Tous)"] + all_countries)
+# on garde uniquement les tokens de type en:xxx (tags OFF)
+all_tokens = []
+for s in countries_series:
+    for tok in s.split("|"):
+        tok = tok.strip().lower()
+        if tok.startswith("en:"):
+            all_tokens.append(tok)
+
+all_countries = sorted(set(all_tokens))
+selected = st.selectbox("Pays (tag OFF)", ["(Tous)"] + all_countries)
 
 if selected != "(Tous)":
     mask = df["countries"].fillna("").str.contains(rf"(^|\|){selected}(\||$)", regex=True)
@@ -31,7 +36,6 @@ if selected != "(Tous)":
 else:
     dff = df
 
-# ---- KPIs ----
 st.subheader("KPIs (sur cette part)")
 col1, col2, col3 = st.columns(3)
 col1.metric("Rows", f"{len(dff):,}".replace(",", " "))
